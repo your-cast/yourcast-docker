@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  web:
+    container_name: podcasts_nginx
+    image: nginx
+    volumes:
+      - ./.docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./src/:/var/www/html
+    ports:
+      - '80:80'
+    depends_on:
+      - php
+      - database
+  php: &app-podcasts-service
+    container_name: podcasts_php
+    build:
+      args:
+        user: podcast
+        uid: 1000
+      context: .docker/php
+    volumes:
+      - ./.docker/php/php.ini:/usr/local/etc/php/conf.d/php.ini
+      - ./.docker/php/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini
+      - ./src/:/var/www/html
+  scheduler:
+    <<: *app-podcasts-service
+    container_name: podcasts_scheduler
+    restart: always
+    command: /scheduler/scheduler.sh
+  database:
+    container_name: podcasts_database
+    image: postgres:14.6
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-podcasts:/var/lib/postgresql/data
+  redis:
+    container_name: podcasts_redis
+    build:
+      context: .docker/redis
+    restart: always
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-podcasts:/data
+
+volumes:
+  postgres-podcasts:
+    driver: local
+  redis-podcasts:
+    driver: local
